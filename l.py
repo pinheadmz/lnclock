@@ -53,6 +53,8 @@ curses.noecho()
 curses.halfdelay(REFRESH * 10) # reset with nocbreak, blocking value is x 0.1 seconds
 # store window dimensions
 MAXYX = stdscr.getmaxyx()
+# scroll list offset
+SCROLL = 0
 # some terminals don't like invisible cursors
 try:
 	curses.curs_set(0)
@@ -231,11 +233,11 @@ def printinfo():
 	# stdscr.addstr(2, 0, "_______________________________________________________________________________")
 
 	# print channels
-	line = 1
+	line = 2
 	tCap, tLoc, tRem, tNum, tPeercap = (0, 0, 0, 0, 0)
-	for chan in chans:
-		line +=1
-
+	offset = SCROLL % len(chans)
+	chanlist = chans if len(chans) < (MAXYX[0]-3) else (chans[offset:] + chans[:offset])
+	for chan in chanlist:
 		# get peerinfo for each channel
 		pk = chan.remote_pubkey
 		peer = getnodeinfo(pk)
@@ -244,9 +246,11 @@ def printinfo():
 		color = curses.color_pair(COLOR_LTBLUE) if chan.active else curses.color_pair(COLOR_RED)
 
 		# print channel info line
-		alias = unicodedata.normalize('NFKD', peer.node.alias).encode('ascii','ignore')
-		s = '%-34.32s%-9.8s%-9.8s%-9.8s%-6.5s%-4.3s%-9.8s' % (alias, chan.capacity, chan.local_balance, chan.remote_balance, "", peer.num_channels, peer.total_capacity)
-		stdscr.addstr(line, 0, s, color)
+		if line <= (MAXYX[0]-3):
+			alias = unicodedata.normalize('NFKD', peer.node.alias).encode('ascii','ignore')
+			s = '%-34.32s%-9.8s%-9.8s%-9.8s%-6.5s%-4.3s%-9.8s' % (alias, chan.capacity, chan.local_balance, chan.remote_balance, "", peer.num_channels, peer.total_capacity)
+			stdscr.addstr(line, 0, s, color)
+			line += 1
 
 		# update totals
 		tCap += chan.capacity
@@ -256,10 +260,8 @@ def printinfo():
 		tPeercap += peer.total_capacity
 
 	# print totals
-	line += 1
 	s = '%-34.32s%-9.8s%-9.8s%-9.8s%-6.5s%-4.3s%-9.8s' % ("TOTALS:", tCap, tLoc, tRem, "", tNum, tPeercap)
 	stdscr.addstr(line, 0, s, curses.color_pair(COLOR_GREEN))
-
 
 	# print menu on bottom
 	menu = "[Q]uit"
@@ -301,4 +303,5 @@ while True:
 
 	# incremenet rotate and wait
 	o = (o+3) % 360
+	SCROLL += 1
 	checkKeyIn()
